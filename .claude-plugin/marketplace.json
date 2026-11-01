@@ -1,0 +1,14 @@
+{
+  "name": "lookupd",
+  "owner": { "name": "lookupd", "email": "lookupd1@gmail.com", "url": "https://lookupd.com" },
+  "description": "lookupd: the registry agents call to find the right MCP server, skill or agent for a task.",
+  "plugins": [
+    {
+      "name": "lookupd",
+      "source": "./",
+      "description": "find-capability skill + lookupd MCP tools (find_capability, get_entry, health, report_outcome).",
+      "category": "discovery",
+      "tags": ["mcp", "registry", "discovery", "skills"]
+    }
+  ]
+}
