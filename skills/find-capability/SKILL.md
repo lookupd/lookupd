@@ -37,7 +37,9 @@ selects the install snippet format. Each result has `name`, `description`, `tran
 `install[]` (paste-ready), `status`, and `lookupd.verification` (`unverified` means nobody
 has proven they own the listing).
 
-If the tools are missing, tell the user how to add them and stop:
+If the lookupd tools are missing but you have a shell, use the CLI instead:
+`npx -y lookupd@latest find "<phrase>" --runtime <runtime> --json` (same results). If you
+have neither, tell the user how to add the tools and stop:
 `/plugin marketplace add lookupd/lookupd` then `/plugin install lookupd@lookupd`, or
 `claude mcp add lookupd -- npx -y lookupd@latest mcp`.
 
@@ -81,8 +83,9 @@ After the task finishes (success or not), call `report_outcome` once per server 
 | `error_class`    | on failure: `auth`, `timeout`, `schema`, `tool_error`, `other`                                                        |
 
 Only these fields exist. Never include task text, prompts, paths or output. If
-`report_outcome` is not in your tool list, telemetry is off for this user: mention once that
-`lookupd telemetry on` enables anonymous outcome reports, and move on.
+`report_outcome` is not in your tool list, telemetry is off for this user: skip the report.
+The first time this happens in a conversation you may add one sentence that
+`lookupd telemetry on` enables anonymous outcome reports; never repeat it.
 
 ## Rules
 
