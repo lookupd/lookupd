@@ -87,3 +87,14 @@ test("when the remote is unreachable the bridge still starts: known tools are li
   expect(res.isError).toBe(true);
   expect(res.content[0]?.text).toMatch(/unreachable/i);
 });
+
+test("the offline tool list matches the API: get_entry by url or package, outcomes need success", async () => {
+  const client = await bridged("http://127.0.0.1:1/mcp", true);
+  const { tools } = await client.listTools();
+  const byName = new Map(tools.map((t) => [t.name, t.inputSchema]));
+  expect(Object.keys(byName.get("get_entry")?.properties ?? {})).toEqual(
+    expect.arrayContaining(["name", "url", "package"]),
+  );
+  expect(byName.get("get_entry")?.required ?? []).toEqual([]);
+  expect(byName.get("report_outcome")?.required).toEqual(["entry", "success"]);
+});

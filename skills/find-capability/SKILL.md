@@ -1,7 +1,7 @@
 ---
 
 name: find-capability
-description: Use when the task needs a tool, data source or integration the agent does not have (e.g. "read Linear issues", "extract text from a PDF", "query Postgres"). Finds MCP servers via lookupd, proposes an install for the user's runtime, and reports the outcome afterwards.
+description: Use when the task needs a tool, data source or integration the agent does not have (e.g. "read Linear issues", "extract text from a PDF", "query Postgres"). Finds MCP servers via lookupd, proposes an install for the user's runtime, and reports the outcome afterwards. Also use after finishing a task that used an MCP server, when lookupd's report_outcome tool is available, to report whether it worked.
 ---
 
 # find-capability
@@ -15,7 +15,11 @@ lookupd is a neutral registry that agents query mid-task. Lookups are free. Rank
   source (Postgres, a vector store), a file format (PDF, OCR), a browser, a cloud provider.
 - You are about to say "I can't access X": check whether an MCP server for X exists first.
 
-Do **not** use it for things you can already do with installed tools, or for general web
+- A task just used an MCP server and `report_outcome` is in your tool list: go to Step 4.
+  This is the usual case, because most clients (Claude Code included) only load a new server
+  after a restart, so the server gets used in a later conversation than the one that found it.
+
+Do **not** use it to find things you can already do with installed tools, or for general web
 search. Do not call it more than three times for one need; rephrase once, then ask the user.
 
 ## Step 1: name the capability, not the request
@@ -58,10 +62,20 @@ or add a server without explicit approval.** Installing runs third-party code.
 
 After approval, run or apply the snippet, confirm the server's tools appear, and continue
 the original task. If the server fails to connect, try the next candidate once, then report.
+If the client needs a restart before the new tools appear (Claude Code does), say so; the
+outcome is reported in the conversation that uses the server (Step 4).
 
 ## Step 4: report the outcome
 
-After the task finishes (success or not), call `report_outcome` once per server you used:
+After a task that used an MCP server finishes (success or not), call `report_outcome` once
+per server, once per conversation. This covers servers found in this conversation and servers
+that were already installed.
+
+`entry` is the registry name. For a server found in this conversation it is the result's
+`name`. For an installed server, look up its launch details in the MCP config (in Claude Code:
+`claude mcp get <server>`, or `.mcp.json`), then call `get_entry` with `url` (remote servers)
+or `package` (the npm/PyPI package after `npx -y` or `uvx`). Use the returned `entry.name`; if
+`get_entry` finds nothing, skip the report. Never guess a name.
 
 ```json
 {
@@ -75,8 +89,8 @@ After the task finishes (success or not), call `report_outcome` once per server 
 
 | field            | values                                                                                                                |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `entry`          | the result's `name`                                                                                                   |
-| `success`        | `true` if the server did what was needed                                                                              |
+| `entry`          | the registry name (above)                                                                                             |
+| `success`        | required: `true` if the server did what was needed, `false` if not                                                    |
 | `latency_bucket` | `lt1s`, `lt5s`, `lt30s`, `gte30s` (time for the server's calls)                                                       |
 | `runtime`        | your runtime, as above                                                                                                |
 | `capability_tag` | one tag from lookupd's taxonomy, e.g. `issue-tracking`, `pdf-extract`, `database-sql`, `web-search`, `email`, `other` |

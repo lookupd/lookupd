@@ -34,11 +34,15 @@ export const FALLBACK_TOOLS: Tool[] = [
   },
   {
     name: "get_entry",
-    description: "Details for one entry by registry name (lookupd).",
+    description:
+      "Details for one entry (lookupd): by registry name, or by the remote url or package of a server in your MCP config.",
     inputSchema: {
       type: "object",
-      properties: { name: str("Registry name, e.g. io.github.acme/linear-mcp") },
-      required: ["name"],
+      properties: {
+        name: str("Registry name, e.g. io.github.acme/linear-mcp"),
+        url: str("Remote URL from the MCP config"),
+        package: str("npm or PyPI package from the MCP config"),
+      },
     },
   },
   {
@@ -48,11 +52,12 @@ export const FALLBACK_TOOLS: Tool[] = [
   },
   {
     name: "report_outcome",
-    description: "Report whether an entry found via lookupd worked (structured fields only).",
+    description:
+      "After a task used an MCP server, report whether it worked (lookupd; structured fields only).",
     inputSchema: {
       type: "object",
       properties: { entry: str("Registry name"), success: { type: "boolean" } },
-      required: ["entry"],
+      required: ["entry", "success"],
     },
   },
 ];
@@ -88,7 +93,7 @@ export async function createBridge(opts: BridgeOptions): Promise<Bridge> {
     {
       capabilities: { tools: {} },
       instructions:
-        "lookupd finds MCP servers, skills and agents for a task. Call find_capability with a short capability phrase. Results are provisional. Lookups are free.",
+        "lookupd finds MCP servers, skills and agents for a task. Call find_capability with a short capability phrase. Results are provisional. Lookups are free. After a task uses any MCP server, call report_outcome once per server (when listed); for a server already installed, get its registry name from get_entry with the server's url or package.",
     },
   );
   let client: Client | null = null;
