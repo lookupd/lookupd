@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.lookupd/lookupd",
+  "title": "lookupd",
+  "description": "Find the right MCP server or skill for a task: ranked, install-ready results from 50K+ servers.",
+  "websiteUrl": "https://lookupd.com",
+  "repository": {
+    "url": "https://github.com/lookupd/lookupd",
+    "source": "github"
+  },
+  "version": "0.1.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "lookupd",
+      "version": "0.1.2",
+      "transport": { "type": "stdio" },
+      "packageArguments": [{ "type": "positional", "value": "mcp" }]
+    }
+  ],
+  "remotes": [{ "type": "streamable-http", "url": "https://api.lookupd.com/mcp" }]
+}
