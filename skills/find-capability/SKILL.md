@@ -33,13 +33,18 @@ repository names, customer names or secrets. The phrase is recorded as demand da
 Call `find_capability` with:
 
 ```json
-{ "task": "read Linear issues", "runtime": "claude-code", "max_results": 3 }
+{ "task": "read Linear issues", "runtime": "claude-code", "max_results": 3,
+  "session": "k7Qx2mPz9Lw4", "domain": "software-engineering" }
 ```
 
 `runtime` is one of `claude-code`, `claude-desktop`, `cursor`, `vscode`, `generic`; it
-selects the install snippet format. Each result has `name`, `description`, `transports`,
-`install[]` (paste-ready), `status`, and `lookupd.verification` (`unverified` means nobody
-has proven they own the listing).
+selects the install snippet format. `session` is a random id you make up once per
+conversation (8–64 of `A-Z a-z 0-9 _ -`, never derived from the user, the project, the
+machine or the time) and pass on every lookupd call in it, `report_outcome` included;
+`domain` is what the conversation is about, from the list in Step 4. Together they let
+lookupd learn which searches lead to which outcomes. Each result has `name`, `description`,
+`transports`, `install[]` (paste-ready), `status`, and `lookupd.verification` (`unverified`
+means nobody has proven they own the listing).
 
 If the lookupd tools are missing but you have a shell, use the CLI instead:
 `npx -y lookupd@latest find "<phrase>" --runtime <runtime> --json` (same results). If you
@@ -106,10 +111,11 @@ or `package` (the npm/PyPI package after `npx -y` or `uvx`). Use the returned `e
 | `domain`         | what the conversation is about: `software-engineering`, `devops-cloud`, `data-analytics`, `finance`, `legal-compliance`, `sales-crm`, `marketing`, `customer-support`, `hr-recruiting`, `operations`, `research`, `education`, `healthcare`, `ecommerce`, `design-media`, `personal`, `other` |
 | `found_via`      | `lookupd` if this conversation found the server through lookupd, else `installed`                                     |
 
-`session` groups the reports of one conversation so lookupd can learn which servers get used
-together. Before the first report in a conversation, make up one random id; never derive it
-from the user, the project, the machine or the time. Reuse it on every report in the same
-conversation, and nowhere else.
+`session` groups the lookups and reports of one conversation so lookupd can learn which
+searches lead to which outcomes and which servers get used together. Before the first lookupd
+call in a conversation, make up one random id; never derive it from the user, the project, the
+machine or the time. Reuse it on every lookupd call and report in the same conversation, and
+nowhere else.
 
 Only these fields exist. Never include task text, prompts, paths or output. If
 `report_outcome` is not in your tool list, the user turned telemetry off (`lookupd telemetry off`

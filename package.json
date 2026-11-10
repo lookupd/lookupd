@@ -1,6 +1,6 @@
 {
   "name": "lookupd",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "mcpName": "com.lookupd/lookupd",
   "description": "Find the right MCP server, skill or agent for a task. CLI + stdio MCP bridge for the lookupd registry.",
   "license": "MIT",

@@ -20,6 +20,37 @@ export const FALLBACK_TOOL_NAMES = [
 
 const str = (description: string) => ({ type: "string", description });
 
+const DOMAINS = [
+  "software-engineering",
+  "devops-cloud",
+  "data-analytics",
+  "finance",
+  "legal-compliance",
+  "sales-crm",
+  "marketing",
+  "customer-support",
+  "hr-recruiting",
+  "operations",
+  "research",
+  "education",
+  "healthcare",
+  "ecommerce",
+  "design-media",
+  "personal",
+  "other",
+];
+
+/** The workflow fields every tool takes, so lookups and outcomes join up in one conversation. */
+const WORKFLOW_PROPERTIES = {
+  session: {
+    type: "string",
+    pattern: "^[A-Za-z0-9_-]{8,64}$",
+    description:
+      "A random id you make up once per conversation and repeat on every lookupd call in it, report_outcome included; never derived from the user, project or machine",
+  },
+  domain: { type: "string", enum: DOMAINS, description: "What the conversation is about" },
+};
+
 /** What the agent sees when the API cannot be reached: the tools exist, calls will explain why they fail. */
 export const FALLBACK_TOOLS: Tool[] = [
   {
@@ -28,7 +59,7 @@ export const FALLBACK_TOOLS: Tool[] = [
       "Find MCP servers for a task (lookupd). Currently unreachable; calls return an error.",
     inputSchema: {
       type: "object",
-      properties: { task: str("Short capability phrase") },
+      properties: { task: str("Short capability phrase"), ...WORKFLOW_PROPERTIES },
       required: ["task"],
     },
   },
@@ -42,13 +73,18 @@ export const FALLBACK_TOOLS: Tool[] = [
         name: str("Registry name, e.g. io.github.acme/linear-mcp"),
         url: str("Remote URL from the MCP config"),
         package: str("npm or PyPI package from the MCP config"),
+        ...WORKFLOW_PROPERTIES,
       },
     },
   },
   {
     name: "health",
     description: "Registry status for one entry (lookupd).",
-    inputSchema: { type: "object", properties: { name: str("Registry name") }, required: ["name"] },
+    inputSchema: {
+      type: "object",
+      properties: { name: str("Registry name"), ...WORKFLOW_PROPERTIES },
+      required: ["name"],
+    },
   },
   {
     name: "report_outcome",
@@ -66,12 +102,7 @@ export const FALLBACK_TOOLS: Tool[] = [
           enum: ["claude-code", "claude-desktop", "cursor", "vscode", "generic"],
         },
         error_class: { type: "string", enum: ["auth", "timeout", "schema", "tool_error", "other"] },
-        session: {
-          type: "string",
-          pattern: "^[A-Za-z0-9_-]{8,64}$",
-          description:
-            "A random id you make up once per conversation and repeat on every report in it; never derived from the user, project or machine",
-        },
+        ...WORKFLOW_PROPERTIES,
         step: {
           type: "integer",
           minimum: 1,
@@ -81,29 +112,6 @@ export const FALLBACK_TOOLS: Tool[] = [
           type: "string",
           pattern: "^[A-Za-z0-9_.-]{1,120}$",
           description: "The tool used most on the server, by name",
-        },
-        domain: {
-          type: "string",
-          enum: [
-            "software-engineering",
-            "devops-cloud",
-            "data-analytics",
-            "finance",
-            "legal-compliance",
-            "sales-crm",
-            "marketing",
-            "customer-support",
-            "hr-recruiting",
-            "operations",
-            "research",
-            "education",
-            "healthcare",
-            "ecommerce",
-            "design-media",
-            "personal",
-            "other",
-          ],
-          description: "What the conversation is about",
         },
         found_via: { type: "string", enum: ["lookupd", "installed"] },
       },
