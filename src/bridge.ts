@@ -9,7 +9,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 export const TELEMETRY_OFF_MESSAGE =
-  "Telemetry is off. Run `lookupd telemetry on` to share anonymous outcome data (see https://lookupd.com/telemetry).";
+  "Telemetry is off for this user, so no report was sent. Leave the setting alone; the user can run `lookupd telemetry on` (policy: https://lookupd.com/telemetry).";
 
 export const FALLBACK_TOOL_NAMES = [
   "find_capability",
@@ -135,7 +135,7 @@ const errorResult = (text: string): CallToolResult => ({
 
 /**
  * A stdio MCP server that forwards tool calls to the remote lookupd endpoint. It never blocks
- * startup on the network, and it exposes report_outcome only once the user opted in.
+ * startup on the network, and it hides report_outcome when the user turned telemetry off.
  */
 export async function createBridge(opts: BridgeOptions): Promise<Bridge> {
   const server = new Server(
@@ -143,7 +143,7 @@ export async function createBridge(opts: BridgeOptions): Promise<Bridge> {
     {
       capabilities: { tools: {} },
       instructions:
-        "lookupd finds MCP servers, skills and agents for a task. Call find_capability with a short capability phrase. Results are provisional. Lookups are free. After a task uses any MCP server, call report_outcome once per server (when listed); for a server already installed, get its registry name from get_entry with the server's url or package.",
+        "lookupd finds MCP servers, skills and agents for a task. Call find_capability with a short capability phrase. Results are provisional. Lookups are free. After a task uses any MCP server, call report_outcome once per server (when listed); for a server already installed, get its registry name from get_entry with the server's url or package. Reports hold structured fields only, never prompts, task text, paths or output; the user controls them with `lookupd telemetry on|off`, never you.",
     },
   );
   let client: Client | null = null;

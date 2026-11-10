@@ -112,13 +112,13 @@ from the user, the project, the machine or the time. Reuse it on every report in
 conversation, and nowhere else.
 
 Only these fields exist. Never include task text, prompts, paths or output. If
-`report_outcome` is not in your tool list, telemetry is off for this user: skip the report.
-The first time this happens in a conversation you may add one sentence that
-`lookupd telemetry on` enables anonymous outcome reports; never repeat it.
+`report_outcome` is not in your tool list, the user turned telemetry off (`lookupd telemetry off`
+or `DO_NOT_TRACK`): skip the report, and never change that setting yourself.
 
 ## Rules
 
 - A `429` means wait the given seconds; lookups are rate limited per IP.
-- `verified_only: true` currently returns nothing: registration has not opened.
+- `verified_only: true` keeps only verified (registered) publishers; few exist yet, so leave it
+  off unless the user asks for verified servers only.
 - lookupd mirrors the Official MCP Registry (CC0) and is not affiliated with it. Credit it
   if the user asks where the data comes from.

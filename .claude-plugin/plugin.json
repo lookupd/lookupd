@@ -1,7 +1,7 @@
 {
   "name": "lookupd",
   "displayName": "lookupd",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Find the right MCP server, skill or agent for a task. Free lookups, neutral index, provisional ranking until outcome evidence exists.",
   "author": { "name": "lookupd", "email": "lookupd1@gmail.com", "url": "https://lookupd.com" },
   "homepage": "https://lookupd.com",

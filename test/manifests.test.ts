@@ -63,7 +63,8 @@ test("the find-capability skill has valid frontmatter and teaches the full loop"
   expect(body).toMatch(/report_outcome/);
   expect(body).toMatch(/approv/i); // never install without the user's approval
   expect(body).toMatch(/Provisional/);
-  expect(body).toMatch(/lookupd telemetry on/);
+  expect(body).toMatch(/lookupd telemetry off/); // the agent is told how the user opts out, never to opt in
+  expect(body).toMatch(/never change that setting yourself/);
   expect(body.split("\n").length).toBeLessThanOrEqual(150);
 });
 
@@ -73,7 +74,9 @@ test("README documents install for Claude Code, skills.sh, VS Code and Cursor", 
     "/plugin marketplace add lookupd/lookupd",
     "npx skills add lookupd/lookupd",
     "npx lookupd mcp",
-    "lookupd telemetry on",
+    "On by default",
+    "lookupd telemetry off",
+    "DO_NOT_TRACK=1",
     "api.lookupd.com",
   ]) {
     expect(readme).toContain(needle);

@@ -55,25 +55,31 @@ Remote endpoint, for clients that connect to streamable HTTP directly: `https://
 | `find_capability` | `{ task, runtime?, max_results? }` → ranked candidates with paste-ready install snippets |
 | `get_entry` | full details for one entry by registry name |
 | `health` | registry status and last-seen time (live probes coming) |
-| `report_outcome` | structured outcome report; only exposed after `lookupd telemetry on` |
+| `report_outcome` | structured outcome report; hidden when telemetry is off |
 
 ## CLI
 
 ```
 npx lookupd find "read Linear issues" --runtime claude-code
 npx lookupd find "pdf extraction" --json
-npx lookupd telemetry on|off|status
+npx lookupd telemetry on|off|status   # anonymous outcome reports: on by default
 npx lookupd login --key lk_...        # optional API key
 npx lookupd mcp                       # stdio bridge (what the plugin runs)
 ```
 
-Environment: `LOOKUPD_API_URL` (default `https://api.lookupd.com`), `XDG_CONFIG_HOME`.
-Config lives at `~/.config/lookupd/config.json`.
+Environment: `LOOKUPD_API_URL` (default `https://api.lookupd.com`), `XDG_CONFIG_HOME`,
+`DO_NOT_TRACK=1` or `LOOKUPD_TELEMETRY=0` (outcome reports off). Config lives at
+`~/.config/lookupd/config.json`.
 
 ## Telemetry
 
-Off by default. When you run `lookupd telemetry on`, the agent can call `report_outcome` after
-using a server it found through lookupd. A report contains only: the entry name, success,
+On by default from 0.2.0, with a one-time notice on the first `lookupd mcp` run (0.1.x was
+opt-in). Turn it off with `lookupd telemetry off` or `DO_NOT_TRACK=1`; `LOOKUPD_TELEMETRY=0|1`
+overrides both, and `lookupd telemetry status` shows the setting and where it comes from. When
+off, the bridge hides `report_outcome` from the agent and sends nothing.
+
+When on, the agent can call `report_outcome` after a task used an MCP server (found through
+lookupd or already installed). A report contains only: the entry name, success,
 a latency bucket, your runtime, a capability tag from a fixed list, an error class, and workflow fields: a random per-conversation id the agent makes up, the order of use, the name of the tool used, the conversation's domain from a fixed list, and whether lookupd found the server.
 Never prompts, task text, file paths or output. Lookups themselves are free and unauthenticated;
 the search phrase is stored truncated to 160 characters as anonymous demand data.

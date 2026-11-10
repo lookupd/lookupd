@@ -3,7 +3,13 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import pkg from "../package.json" with { type: "json" };
 import { LookupdApi, LookupdApiError } from "./api.js";
 import { createBridge } from "./bridge.js";
-import { detectRuntime, readConfig, writeConfig } from "./config.js";
+import {
+  detectRuntime,
+  NOTICE_VERSION,
+  readConfig,
+  telemetryState,
+  writeConfig,
+} from "./config.js";
 import { formatResults } from "./find-cmd.js";
 import type { Runtime } from "./types.js";
 
@@ -12,17 +18,27 @@ const USAGE = `lookupd ${pkg.version} — find the right MCP server, skill or ag
 usage:
   lookupd mcp                                   serve lookupd's tools over stdio (for MCP clients)
   lookupd find <task...> [--runtime R] [--limit N] [--json]
-  lookupd telemetry on|off|status               opt in/out of anonymous outcome reports
+  lookupd telemetry on|off|status               anonymous outcome reports (on by default)
   lookupd login --key lk_...                    store an API key (optional)
   lookupd --version
 
-Environment: LOOKUPD_API_URL (default https://api.lookupd.com), XDG_CONFIG_HOME
+Environment: LOOKUPD_API_URL (default https://api.lookupd.com), XDG_CONFIG_HOME,
+  DO_NOT_TRACK=1 or LOOKUPD_TELEMETRY=0 (turn outcome reports off)
 `;
 
-const NOTICE = `lookupd: telemetry is off. Outcome reports (did the tool work? how long? which runtime?)
-improve rankings for everyone and contain structured fields only: never prompts, task text or
-paths. Enable with:  lookupd telemetry on     Policy: https://lookupd.com/telemetry
+const NOTICE = `lookupd: anonymous outcome reports are on. After a task uses an MCP server, the agent may
+report which server, whether it worked, a latency bucket, your runtime, and structured workflow
+fields (a random per-conversation id, step, tool name, domain from a fixed list). Never prompts,
+task text, paths or output.  Turn off:  lookupd telemetry off   (or DO_NOT_TRACK=1)
+Policy: https://lookupd.com/telemetry
 `;
+
+const STATUS_REASON = {
+  default: "default",
+  config: "set by lookupd telemetry",
+  DO_NOT_TRACK: "DO_NOT_TRACK is set",
+  LOOKUPD_TELEMETRY: "LOOKUPD_TELEMETRY=",
+} as const;
 
 const RUNTIMES: Runtime[] = ["claude-code", "claude-desktop", "cursor", "vscode", "generic"];
 
@@ -67,11 +83,14 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Prom
 
   switch (command) {
     case "mcp": {
-      const telemetryOn = config.telemetry === "on";
-      if (config.telemetry === "unset" && !config.noticeShown) {
+      const telemetry = telemetryState(config, env);
+      // Shown once per notice version, only when the default decides; an explicit choice or an
+      // environment opt-out needs no reminder.
+      if (telemetry.source === "default" && config.noticeVersion !== NOTICE_VERSION) {
         io.stderr.write(NOTICE);
-        writeConfig({ ...config, noticeShown: true }, env);
+        writeConfig({ ...config, noticeVersion: NOTICE_VERSION }, env);
       }
+      const telemetryOn = telemetry.on;
       const bridge = await createBridge({
         remoteUrl: new URL(`${api.baseUrl}/mcp`),
         headers: {
@@ -119,15 +138,22 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Prom
     case "telemetry": {
       const mode = rest[0];
       if (mode === "status") {
-        io.stdout.write(`${config.telemetry}\n`);
+        const t = telemetryState(config, env);
+        const reason =
+          t.source === "config"
+            ? `${STATUS_REASON.config} ${config.telemetry}`
+            : t.source === "LOOKUPD_TELEMETRY"
+              ? `${STATUS_REASON.LOOKUPD_TELEMETRY}${env.LOOKUPD_TELEMETRY}`
+              : STATUS_REASON[t.source];
+        io.stdout.write(`${t.on ? "on" : "off"} (${reason})\n`);
         return 0;
       }
       if (mode === "on" || mode === "off") {
-        writeConfig({ ...config, telemetry: mode, noticeShown: true }, env);
+        writeConfig({ ...config, telemetry: mode, noticeVersion: NOTICE_VERSION }, env);
         io.stdout.write(
           mode === "on"
             ? "telemetry on: structured outcome reports will be shared (never prompts, task text or paths)\n"
-            : "telemetry off\n",
+            : "telemetry off: the agent will not be offered report_outcome\n",
         );
         return 0;
       }

@@ -96,15 +96,29 @@ test("find prints results from the REST API, as a table or as JSON", async () =>
   expect(table.stdout).toMatch(/provisional/i);
 });
 
-test("telemetry on|off|status writes and reads the config", async () => {
-  expect((await run(["telemetry", "status"])).stdout.trim()).toBe("unset");
+test("telemetry status is on by default and names the source of the setting", async () => {
+  expect((await run(["telemetry", "status"])).stdout.trim()).toBe("on (default)");
+  expect((await run(["telemetry", "status"], { DO_NOT_TRACK: "1" })).stdout.trim()).toBe(
+    "off (DO_NOT_TRACK is set)",
+  );
   expect((await run(["telemetry", "on"])).status).toBe(0);
-  expect((await run(["telemetry", "status"])).stdout.trim()).toBe("on");
+  expect((await run(["telemetry", "status"])).stdout.trim()).toBe(
+    "on (set by lookupd telemetry on)",
+  );
   expect(JSON.parse(readFileSync(join(tmp, "lookupd", "config.json"), "utf8")).telemetry).toBe(
     "on",
   );
   expect((await run(["telemetry", "off"])).status).toBe(0);
-  expect((await run(["telemetry", "status"])).stdout.trim()).toBe("off");
+  expect((await run(["telemetry", "status"])).stdout.trim()).toBe(
+    "off (set by lookupd telemetry off)",
+  );
+  // The explicit choice beats DO_NOT_TRACK; LOOKUPD_TELEMETRY beats the explicit choice.
+  expect((await run(["telemetry", "status"], { DO_NOT_TRACK: "1" })).stdout.trim()).toBe(
+    "off (set by lookupd telemetry off)",
+  );
+  expect((await run(["telemetry", "status"], { LOOKUPD_TELEMETRY: "1" })).stdout.trim()).toBe(
+    "on (LOOKUPD_TELEMETRY=1)",
+  );
   expect((await run(["telemetry", "maybe"])).status).toBe(1);
 });
 
@@ -116,7 +130,7 @@ test("login stores an API key", async () => {
   expect((await run(["login"])).status).toBe(1);
 });
 
-test("mcp serves the remote tools over stdio and prints the one-time telemetry notice", async () => {
+async function mcpSession(env: Record<string, string>) {
   const remote = await startRemote();
   cleanups.push(remote.close);
   tmp ??= mkdtempSync(join(tmpdir(), "lookupd-cli-"));
@@ -127,18 +141,24 @@ test("mcp serves the remote tools over stdio and prints the one-time telemetry n
       PATH: process.env.PATH ?? "",
       XDG_CONFIG_HOME: tmp,
       LOOKUPD_API_URL: remote.url.replace(/\/mcp$/, ""),
+      ...env,
     },
     stderr: "pipe",
   });
-  let notice = "";
+  const stderr = { text: "" };
   transport.stderr?.on("data", (d: Buffer) => {
-    notice += d.toString();
+    stderr.text += d.toString();
   });
   const client = new Client({ name: "agent", version: "0" });
   await client.connect(transport);
   cleanups.push(() => client.close());
   const { tools } = await client.listTools();
-  expect(tools.map((t) => t.name).sort()).toEqual(["find_capability", "get_entry", "health"]);
+  return { client, tools: tools.map((t) => t.name).sort(), stderr };
+}
+
+test("mcp serves the remote tools over stdio, with report_outcome on by default, and prints the one-time notice", async () => {
+  const { client, tools, stderr } = await mcpSession({});
+  expect(tools).toEqual(["find_capability", "get_entry", "health", "report_outcome"]);
   const res = (await client.callTool({
     name: "find_capability",
     arguments: { task: "linear" },
@@ -147,8 +167,26 @@ test("mcp serves the remote tools over stdio and prints the one-time telemetry n
   };
   expect(res.structuredContent?.results[0]?.name).toBe("a/b");
   await new Promise((r) => setTimeout(r, 100));
-  expect(notice).toMatch(/lookupd telemetry on/);
-  expect(JSON.parse(readFileSync(join(tmp, "lookupd", "config.json"), "utf8")).noticeShown).toBe(
-    true,
+  expect(stderr.text).toMatch(/outcome reports are on/);
+  expect(stderr.text).toMatch(/lookupd telemetry off/);
+  expect(stderr.text).toMatch(/DO_NOT_TRACK=1/);
+  expect(stderr.text).toMatch(/lookupd\.com\/telemetry/);
+  expect(JSON.parse(readFileSync(join(tmp, "lookupd", "config.json"), "utf8")).noticeVersion).toBe(
+    2,
   );
+});
+
+test("mcp with DO_NOT_TRACK hides report_outcome and prints no notice", async () => {
+  const { tools, stderr } = await mcpSession({ DO_NOT_TRACK: "1" });
+  expect(tools).toEqual(["find_capability", "get_entry", "health"]);
+  await new Promise((r) => setTimeout(r, 100));
+  expect(stderr.text).toBe("");
+});
+
+test("mcp after lookupd telemetry off hides report_outcome", async () => {
+  expect((await run(["telemetry", "off"])).status).toBe(0);
+  const { tools, stderr } = await mcpSession({});
+  expect(tools).toEqual(["find_capability", "get_entry", "health"]);
+  await new Promise((r) => setTimeout(r, 100));
+  expect(stderr.text).toBe("");
 });

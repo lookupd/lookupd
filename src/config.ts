@@ -6,14 +6,45 @@ import type { Runtime } from "./types.js";
 export type Telemetry = "on" | "off" | "unset";
 
 export interface Config {
-  /** Opt-in sharing of structured outcome events. Off/unset hides the report_outcome tool. */
+  /** The user's explicit choice from `lookupd telemetry on|off`; unset means the default. */
   telemetry: Telemetry;
   apiKey?: string;
-  /** The one-time telemetry notice has been printed. */
-  noticeShown?: boolean;
+  /** Which one-time telemetry notice has been printed (NOTICE_VERSION); absent for 0.1.x configs. */
+  noticeVersion?: number;
 }
 
 export const UNSET: Config = { telemetry: "unset" };
+
+/** Bumped when the default or the notice text changes, so every user sees the new notice once. */
+export const NOTICE_VERSION = 2;
+
+export type TelemetrySource = "LOOKUPD_TELEMETRY" | "config" | "DO_NOT_TRACK" | "default";
+
+export interface TelemetryState {
+  on: boolean;
+  source: TelemetrySource;
+}
+
+const OFF_WORDS = new Set(["0", "off", "false", "no"]);
+const ON_WORDS = new Set(["1", "on", "true", "yes"]);
+
+/**
+ * Whether the bridge offers report_outcome. On by default since 0.2.0. Precedence: LOOKUPD_TELEMETRY
+ * in the environment, then `lookupd telemetry on|off`, then DO_NOT_TRACK (consoledonottrack.com),
+ * then the default.
+ */
+export function telemetryState(
+  config: Config,
+  env: NodeJS.ProcessEnv = process.env,
+): TelemetryState {
+  const explicit = (env.LOOKUPD_TELEMETRY ?? "").trim().toLowerCase();
+  if (OFF_WORDS.has(explicit)) return { on: false, source: "LOOKUPD_TELEMETRY" };
+  if (ON_WORDS.has(explicit)) return { on: true, source: "LOOKUPD_TELEMETRY" };
+  if (config.telemetry !== "unset") return { on: config.telemetry === "on", source: "config" };
+  const dnt = (env.DO_NOT_TRACK ?? "").trim().toLowerCase();
+  if (dnt && !OFF_WORDS.has(dnt)) return { on: false, source: "DO_NOT_TRACK" };
+  return { on: true, source: "default" };
+}
 
 /** `$XDG_CONFIG_HOME/lookupd/config.json`, else `~/.config/lookupd/config.json`. */
 export function configPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -30,7 +61,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     return {
       telemetry,
       ...(typeof raw.apiKey === "string" && raw.apiKey ? { apiKey: raw.apiKey } : {}),
-      ...(raw.noticeShown === true ? { noticeShown: true } : {}),
+      ...(typeof raw.noticeVersion === "number" ? { noticeVersion: raw.noticeVersion } : {}),
     };
   } catch {
     return { ...UNSET };
