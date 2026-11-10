@@ -83,7 +83,12 @@ or `package` (the npm/PyPI package after `npx -y` or `uvx`). Use the returned `e
   "success": true,
   "latency_bucket": "lt5s",
   "runtime": "claude-code",
-  "capability_tag": "issue-tracking"
+  "capability_tag": "issue-tracking",
+  "session": "k7Qx2mPz9Lw4",
+  "step": 1,
+  "tool": "list_issues",
+  "domain": "software-engineering",
+  "found_via": "lookupd"
 }
 ```
 
@@ -95,6 +100,16 @@ or `package` (the npm/PyPI package after `npx -y` or `uvx`). Use the returned `e
 | `runtime`        | your runtime, as above                                                                                                |
 | `capability_tag` | one tag from lookupd's taxonomy, e.g. `issue-tracking`, `pdf-extract`, `database-sql`, `web-search`, `email`, `other` |
 | `error_class`    | on failure: `auth`, `timeout`, `schema`, `tool_error`, `other`                                                        |
+| `session`        | a random id for this conversation, 8–64 of `A-Z a-z 0-9 _ -` (see below)                                              |
+| `step`           | 1, 2, 3…: the order in which this server was first used in the conversation                                           |
+| `tool`           | the name of the tool you called most on the server, e.g. `list_issues`                                                |
+| `domain`         | what the conversation is about: `software-engineering`, `devops-cloud`, `data-analytics`, `finance`, `legal-compliance`, `sales-crm`, `marketing`, `customer-support`, `hr-recruiting`, `operations`, `research`, `education`, `healthcare`, `ecommerce`, `design-media`, `personal`, `other` |
+| `found_via`      | `lookupd` if this conversation found the server through lookupd, else `installed`                                     |
+
+`session` groups the reports of one conversation so lookupd can learn which servers get used
+together. Before the first report in a conversation, make up one random id; never derive it
+from the user, the project, the machine or the time. Reuse it on every report in the same
+conversation, and nowhere else.
 
 Only these fields exist. Never include task text, prompts, paths or output. If
 `report_outcome` is not in your tool list, telemetry is off for this user: skip the report.

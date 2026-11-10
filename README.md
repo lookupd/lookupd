@@ -74,7 +74,7 @@ Config lives at `~/.config/lookupd/config.json`.
 
 Off by default. When you run `lookupd telemetry on`, the agent can call `report_outcome` after
 using a server it found through lookupd. A report contains only: the entry name, success,
-a latency bucket, your runtime, a capability tag from a fixed list, and an error class.
+a latency bucket, your runtime, a capability tag from a fixed list, an error class, and workflow fields: a random per-conversation id the agent makes up, the order of use, the name of the tool used, the conversation's domain from a fixed list, and whether lookupd found the server.
 Never prompts, task text, file paths or output. Lookups themselves are free and unauthenticated;
 the search phrase is stored truncated to 160 characters as anonymous demand data.
 Policy: https://lookupd.com/telemetry
