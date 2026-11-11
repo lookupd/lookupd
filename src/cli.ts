@@ -11,6 +11,15 @@ import {
   writeConfig,
 } from "./config.js";
 import { formatResults } from "./find-cmd.js";
+import {
+  HOOK_CLIENTS,
+  HOOK_NOTICE,
+  type HookClient,
+  handleHookEvent,
+  hookStatus,
+  installHook,
+  removeHook,
+} from "./hooks.js";
 import type { Runtime } from "./types.js";
 
 const USAGE = `lookupd ${pkg.version} — find the right MCP server, skill or agent for a task
@@ -19,6 +28,8 @@ usage:
   lookupd mcp                                   serve lookupd's tools over stdio (for MCP clients)
   lookupd find <task...> [--runtime R] [--limit N] [--json]
   lookupd telemetry on|off|status               anonymous outcome reports (on by default)
+  lookupd hooks install|remove|status [--client claude-code|codex]
+                                                opt-in: report which servers and tools get called
   lookupd login --key lk_...                    store an API key (optional)
   lookupd --version
 
@@ -54,6 +65,12 @@ interface Io {
   stderr: { write(s: string): unknown };
 }
 
+async function readStdin(): Promise<string> {
+  let raw = "";
+  for await (const chunk of process.stdin) raw += chunk;
+  return raw;
+}
+
 export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Promise<number> {
   let parsed: ReturnType<typeof parseArgs>;
   try {
@@ -64,6 +81,7 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Prom
         limit: { type: "string" },
         json: { type: "boolean" },
         key: { type: "string" },
+        client: { type: "string" },
         version: { type: "boolean", short: "v" },
         help: { type: "boolean", short: "h" },
       },
@@ -175,6 +193,62 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Prom
       }
       writeConfig({ ...config, apiKey: key }, env);
       io.stdout.write("API key stored\n");
+      return 0;
+    }
+    case "hooks": {
+      const action = rest[0];
+      const client = (values.client as string | undefined) ?? "claude-code";
+      if (!HOOK_CLIENTS.includes(client as HookClient)) {
+        io.stderr.write(`--client must be one of ${HOOK_CLIENTS.join(", ")}\n`);
+        return 1;
+      }
+      if (action === "status") {
+        for (const s of hookStatus(env))
+          io.stdout.write(
+            `${s.client}: ${s.installed ? "installed" : "not installed"} (${s.path})\n`,
+          );
+        return 0;
+      }
+      if (action === "install") {
+        const { path, events } = installHook(client as HookClient, env);
+        io.stdout.write(`hook installed in ${path} (${events.join(", ")})\n${HOOK_NOTICE}\n`);
+        if (client === "codex")
+          io.stdout.write(
+            "Codex runs a new hook only once you trust it: open Codex and run /hooks.\n",
+          );
+        return 0;
+      }
+      if (action === "remove") {
+        const { path, removed } = removeHook(client as HookClient, env);
+        io.stdout.write(removed ? `hook removed from ${path}\n` : `no lookupd hook in ${path}\n`);
+        return 0;
+      }
+      io.stderr.write("usage: lookupd hooks install|remove|status [--client claude-code|codex]\n");
+      return 1;
+    }
+    case "hook-event": {
+      // Runs inside the client after every MCP tool call. It never fails and never prints: the
+      // tool call it describes must not notice it.
+      const client = rest[0];
+      if (!HOOK_CLIENTS.includes(client as HookClient)) return 0;
+      let payload: unknown = null;
+      try {
+        payload = JSON.parse(await readStdin());
+      } catch {
+        return 0;
+      }
+      await handleHookEvent({
+        client: client as HookClient,
+        payload,
+        config,
+        env,
+        api: new LookupdApi({
+          userAgent: `lookupd-hook/${pkg.version} (${client})`,
+          env,
+          apiKey: config.apiKey,
+          timeoutMs: 3_000,
+        }),
+      });
       return 0;
     }
     default:

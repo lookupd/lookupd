@@ -1,4 +1,4 @@
-import type { FindResponse, OutcomeEvent, Runtime } from "./types.js";
+import type { CallEvent, FindResponse, OutcomeEvent, Runtime } from "./types.js";
 
 export const DEFAULT_BASE_URL = "https://api.lookupd.com";
 
@@ -30,6 +30,8 @@ export interface LookupdApiOptions {
   userAgent: string;
   fetch?: typeof fetch;
   env?: NodeJS.ProcessEnv;
+  /** Per-request deadline; the hook uses a short one so it never holds up a tool call. Default 15 s. */
+  timeoutMs?: number;
 }
 
 /** Thin typed client for the lookupd REST API. */
@@ -38,6 +40,7 @@ export class LookupdApi {
   private readonly apiKey: string | undefined;
   private readonly userAgent: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly timeoutMs: number;
 
   constructor(opts: LookupdApiOptions) {
     const env = opts.env ?? process.env;
@@ -45,6 +48,7 @@ export class LookupdApi {
     this.apiKey = opts.apiKey;
     this.userAgent = opts.userAgent;
     this.fetchImpl = opts.fetch ?? fetch;
+    this.timeoutMs = opts.timeoutMs ?? 15_000;
   }
 
   find(q: FindQuery): Promise<FindResponse> {
@@ -64,8 +68,21 @@ export class LookupdApi {
     return this.request("GET", `/v0.1/entries/${encodeURIComponent(name)}/health`);
   }
 
-  events(batch: OutcomeEvent[]): Promise<{ accepted: number; ignored: number; principal: string }> {
+  events(
+    batch: Array<OutcomeEvent | CallEvent>,
+  ): Promise<{ accepted: number; ignored: number; principal: string }> {
     return this.request("POST", "/v0.1/events", { events: batch });
+  }
+
+  /** The registry name behind a server already in an MCP config: by its remote url or its package. */
+  resolve(q: {
+    url?: string;
+    package?: string;
+  }): Promise<{ name: string | null; matches: string[] }> {
+    const params = new URLSearchParams();
+    if (q.url) params.set("url", q.url);
+    if (q.package) params.set("package", q.package);
+    return this.request("GET", `/v0.1/resolve?${params}`);
   }
 
   private async request<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
@@ -79,6 +96,7 @@ export class LookupdApi {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
     if (!res.ok) {
       const retry = Number(res.headers.get("retry-after"));

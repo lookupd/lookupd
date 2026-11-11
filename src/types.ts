@@ -22,6 +22,18 @@ export interface OutcomeEvent {
   lookup_id?: string;
 }
 
+/** One tool call on a server, as the opt-in hook observes it: names and a verdict, never content. */
+export interface CallEvent {
+  kind: "call";
+  entry: string;
+  tool: string;
+  ok: boolean;
+  latency_ms?: number;
+  runtime?: Runtime;
+  session?: string;
+  lookup_id?: string;
+}
+
 export interface InstallSnippet {
   runtime: Runtime;
   kind: "command" | "config";

@@ -63,6 +63,7 @@ Remote endpoint, for clients that connect to streamable HTTP directly: `https://
 npx lookupd find "read Linear issues" --runtime claude-code
 npx lookupd find "pdf extraction" --json
 npx lookupd telemetry on|off|status   # anonymous outcome reports: on by default
+npx lookupd hooks install|remove|status [--client claude-code|codex]   # opt-in call hook
 npx lookupd login --key lk_...        # optional API key
 npx lookupd mcp                       # stdio bridge (what the plugin runs)
 ```
@@ -84,6 +85,22 @@ a latency bucket, your runtime, a capability tag from a fixed list, an error cla
 Never prompts, task text, file paths or output. Lookups themselves are free and unauthenticated;
 the search phrase is stored truncated to 160 characters as anonymous demand data.
 Policy: https://lookupd.com/telemetry
+
+Every find response carries a `lookup_id`; the skill quotes it in the outcome report, so a report
+names the exact search that found the server.
+
+## Call hooks (opt-in)
+
+`lookupd hooks install` (add `--client codex` for Codex) writes one hook into
+`~/.claude/settings.json` or `~/.codex/hooks.json` that runs after every MCP tool call. It sends
+lookupd one event per call: the server's registry name (resolved once from the URL or package in
+your MCP config and cached in `~/.config/lookupd/servers.json`; the config never leaves the
+machine), the tool name, whether the call succeeded, your runtime and the client's random session
+id. Never arguments, output, prompts, the working directory or any path. It sends nothing while
+telemetry is off, never slows or fails the tool call (3 s budget, always exit 0), and
+`lookupd hooks remove` takes it out. Codex runs a new hook only once you trust it with `/hooks`.
+The hook command uses absolute paths to this install of lookupd, so prefer `npm i -g lookupd`
+over `npx` for it.
 
 ## Develop
 
