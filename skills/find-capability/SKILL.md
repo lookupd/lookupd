@@ -33,18 +33,25 @@ repository names, customer names or secrets. The phrase is recorded as demand da
 Call `find_capability` with:
 
 ```json
-{ "task": "read Linear issues", "runtime": "claude-code", "max_results": 3,
-  "session": "k7Qx2mPz9Lw4", "domain": "software-engineering" }
+{
+  "task": "read Linear issues",
+  "runtime": "claude-code",
+  "max_results": 3,
+  "session": "k7Qx2mPz9Lw4",
+  "domain": "software-engineering"
+}
 ```
 
-`runtime` is one of `claude-code`, `claude-desktop`, `cursor`, `vscode`, `generic`; it
-selects the install snippet format. `session` is a random id you make up once per
+`runtime` is one of `claude-code`, `codex`, `claude-desktop`, `cursor`, `vscode`, `generic`;
+it selects the install snippet format. `session` is a random id you make up once per
 conversation (8–64 of `A-Z a-z 0-9 _ -`, never derived from the user, the project, the
 machine or the time) and pass on every lookupd call in it, `report_outcome` included;
 `domain` is what the conversation is about, from the list in Step 4. Together they let
-lookupd learn which searches lead to which outcomes. Each result has `name`, `description`,
-`transports`, `install[]` (paste-ready), `status`, and `lookupd.verification` (`unverified`
-means nobody has proven they own the listing).
+lookupd learn which searches lead to which outcomes. The response carries `lookup_id`, the
+id of this search: keep it, and quote it in the outcome report for whichever result you end
+up using. Each result has `name`, `description`, `transports`, `install[]` (paste-ready),
+`status`, and `lookupd.verification` (`unverified` means nobody has proven they own the
+listing).
 
 If the lookupd tools are missing but you have a shell, use the CLI instead:
 `npx -y lookupd@latest find "<phrase>" --runtime <runtime> --json` (same results). If you
@@ -93,23 +100,25 @@ or `package` (the npm/PyPI package after `npx -y` or `uvx`). Use the returned `e
   "step": 1,
   "tool": "list_issues",
   "domain": "software-engineering",
-  "found_via": "lookupd"
+  "found_via": "lookupd",
+  "lookup_id": "7b1f0c2e-5d4a-4b8e-9f1a-2c3d4e5f6a7b"
 }
 ```
 
-| field            | values                                                                                                                |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `entry`          | the registry name (above)                                                                                             |
-| `success`        | required: `true` if the server did what was needed, `false` if not                                                    |
-| `latency_bucket` | `lt1s`, `lt5s`, `lt30s`, `gte30s` (time for the server's calls)                                                       |
-| `runtime`        | your runtime, as above                                                                                                |
-| `capability_tag` | one tag from lookupd's taxonomy, e.g. `issue-tracking`, `pdf-extract`, `database-sql`, `web-search`, `email`, `other` |
-| `error_class`    | on failure: `auth`, `timeout`, `schema`, `tool_error`, `other`                                                        |
-| `session`        | a random id for this conversation, 8–64 of `A-Z a-z 0-9 _ -` (see below)                                              |
-| `step`           | 1, 2, 3…: the order in which this server was first used in the conversation                                           |
-| `tool`           | the name of the tool you called most on the server, e.g. `list_issues`                                                |
+| field            | values                                                                                                                                                                                                                                                                                        |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entry`          | the registry name (above)                                                                                                                                                                                                                                                                     |
+| `success`        | required: `true` if the server did what was needed, `false` if not                                                                                                                                                                                                                            |
+| `latency_bucket` | `lt1s`, `lt5s`, `lt30s`, `gte30s` (time for the server's calls)                                                                                                                                                                                                                               |
+| `runtime`        | your runtime, as above                                                                                                                                                                                                                                                                        |
+| `capability_tag` | one tag from lookupd's taxonomy, e.g. `issue-tracking`, `pdf-extract`, `database-sql`, `web-search`, `email`, `other`                                                                                                                                                                         |
+| `error_class`    | on failure: `auth`, `timeout`, `schema`, `tool_error`, `other`                                                                                                                                                                                                                                |
+| `session`        | a random id for this conversation, 8–64 of `A-Z a-z 0-9 _ -` (see below)                                                                                                                                                                                                                      |
+| `step`           | 1, 2, 3…: the order in which this server was first used in the conversation                                                                                                                                                                                                                   |
+| `tool`           | the name of the tool you called most on the server, e.g. `list_issues`                                                                                                                                                                                                                        |
 | `domain`         | what the conversation is about: `software-engineering`, `devops-cloud`, `data-analytics`, `finance`, `legal-compliance`, `sales-crm`, `marketing`, `customer-support`, `hr-recruiting`, `operations`, `research`, `education`, `healthcare`, `ecommerce`, `design-media`, `personal`, `other` |
-| `found_via`      | `lookupd` if this conversation found the server through lookupd, else `installed`                                     |
+| `found_via`      | `lookupd` if this conversation found the server through lookupd, else `installed`                                                                                                                                                                                                             |
+| `lookup_id`      | the `lookup_id` from the `find_capability` response that found this server (omit for an installed server)                                                                                                                                                                                     |
 
 `session` groups the lookups and reports of one conversation so lookupd can learn which
 searches lead to which outcomes and which servers get used together. Before the first lookupd
@@ -124,7 +133,7 @@ or `DO_NOT_TRACK`): skip the report, and never change that setting yourself.
 ## Rules
 
 - A `429` means wait the given seconds; lookups are rate limited per IP.
-- `verified_only: true` keeps only verified (registered) publishers; few exist yet, so leave it
-  off unless the user asks for verified servers only.
+- `verified_only: true` keeps only verified publishers (claimed listings); few exist yet, so
+  leave it off unless the user asks for verified servers only.
 - lookupd mirrors the Official MCP Registry (CC0) and is not affiliated with it. Credit it
   if the user asks where the data comes from.

@@ -40,7 +40,14 @@ const STATUS_REASON = {
   LOOKUPD_TELEMETRY: "LOOKUPD_TELEMETRY=",
 } as const;
 
-const RUNTIMES: Runtime[] = ["claude-code", "claude-desktop", "cursor", "vscode", "generic"];
+const RUNTIMES: Runtime[] = [
+  "claude-code",
+  "codex",
+  "claude-desktop",
+  "cursor",
+  "vscode",
+  "generic",
+];
 
 interface Io {
   stdout: { write(s: string): unknown };

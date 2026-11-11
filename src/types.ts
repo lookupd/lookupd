@@ -1,5 +1,5 @@
 /** Mirrors the server's taxonomy enums (packages/shared in the lookupd API). */
-export type Runtime = "claude-code" | "claude-desktop" | "cursor" | "vscode" | "generic";
+export type Runtime = "claude-code" | "codex" | "claude-desktop" | "cursor" | "vscode" | "generic";
 export type LatencyBucket = "lt1s" | "lt5s" | "lt30s" | "gte30s";
 export type ErrorClass = "auth" | "timeout" | "schema" | "tool_error" | "other";
 
@@ -12,6 +12,14 @@ export interface OutcomeEvent {
   latency_bucket?: LatencyBucket;
   runtime?: Runtime;
   error_class?: ErrorClass;
+  /** A random per-conversation id, the server's order of first use, the tool used most, the domain. */
+  session?: string;
+  step?: number;
+  tool?: string;
+  domain?: string;
+  found_via?: "lookupd" | "installed";
+  /** The lookup_id from the find response that found this server. */
+  lookup_id?: string;
 }
 
 export interface InstallSnippet {
@@ -33,11 +41,20 @@ export interface FindResult {
   transports: string[];
   install: InstallSnippet[];
   score: number;
-  lookupd: { indexedAt: string; lastSeenAt: string; verification: string };
+  lookupd: {
+    indexedAt: string;
+    lastSeenAt: string;
+    verification: string;
+    publisher?: string | null;
+  };
 }
 
 export interface FindResponse {
   results: FindResult[];
+  /** Reserved for labeled placement; empty while placement is not offered. */
+  featured?: FindResult[];
   ranking: "provisional" | string;
   note?: string;
+  /** The id of this search on lookupd: quote it on report_outcome so the outcome ties to it. */
+  lookup_id?: string | null;
 }

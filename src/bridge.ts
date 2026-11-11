@@ -99,7 +99,7 @@ export const FALLBACK_TOOLS: Tool[] = [
         latency_bucket: { type: "string", enum: ["lt1s", "lt5s", "lt30s", "gte30s"] },
         runtime: {
           type: "string",
-          enum: ["claude-code", "claude-desktop", "cursor", "vscode", "generic"],
+          enum: ["claude-code", "codex", "claude-desktop", "cursor", "vscode", "generic"],
         },
         error_class: { type: "string", enum: ["auth", "timeout", "schema", "tool_error", "other"] },
         ...WORKFLOW_PROPERTIES,
@@ -114,6 +114,9 @@ export const FALLBACK_TOOLS: Tool[] = [
           description: "The tool used most on the server, by name",
         },
         found_via: { type: "string", enum: ["lookupd", "installed"] },
+        lookup_id: str(
+          "The lookup_id from the find_capability response that found this server, so the outcome ties to that search",
+        ),
       },
       required: ["entry", "success"],
     },

@@ -11,6 +11,7 @@ export function formatResults(res: FindResponse): string {
     `${label} · ${res.results.length} result${res.results.length === 1 ? "" : "s"} · data: Official MCP Registry (CC0) via lookupd`,
   );
   if (res.note) lines.push(`note: ${res.note}`);
+  if (res.lookup_id) lines.push(`lookup_id: ${res.lookup_id} (quote it in the outcome report)`);
   res.results.forEach((r, i) => {
     lines.push("");
     lines.push(
