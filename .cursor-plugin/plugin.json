@@ -1,0 +1,12 @@
+{
+  "name": "lookupd",
+  "version": "0.3.0",
+  "description": "Find the right MCP server for the task at hand: a free registry agents query mid-task, with live health checks, install snippets and outcome reports. Adds the find-capability skill and lookupd's MCP tools (find_capability, get_entry, health, report_outcome).",
+  "author": { "name": "lookupd", "email": "lookupd1@gmail.com" },
+  "homepage": "https://lookupd.com",
+  "repository": "https://github.com/lookupd/lookupd",
+  "license": "MIT",
+  "keywords": ["mcp", "registry", "discovery", "skills", "tools"],
+  "skills": ["skills"],
+  "mcpServers": "mcp.json"
+}
