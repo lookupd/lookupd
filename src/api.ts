@@ -32,6 +32,8 @@ export interface LookupdApiOptions {
   env?: NodeJS.ProcessEnv;
   /** Per-request deadline; the hook uses a short one so it never holds up a tool call. Default 15 s. */
   timeoutMs?: number;
+  /** The install id, sent as X-Lookupd-Install on every request; pass it only while telemetry is on. */
+  installId?: string;
 }
 
 /** Thin typed client for the lookupd REST API. */
@@ -41,6 +43,7 @@ export class LookupdApi {
   private readonly userAgent: string;
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
+  private readonly installId: string | undefined;
 
   constructor(opts: LookupdApiOptions) {
     const env = opts.env ?? process.env;
@@ -49,6 +52,7 @@ export class LookupdApi {
     this.userAgent = opts.userAgent;
     this.fetchImpl = opts.fetch ?? fetch;
     this.timeoutMs = opts.timeoutMs ?? 15_000;
+    this.installId = opts.installId;
   }
 
   find(q: FindQuery): Promise<FindResponse> {
@@ -91,6 +95,7 @@ export class LookupdApi {
       "user-agent": this.userAgent,
     };
     if (this.apiKey) headers.authorization = `Bearer ${this.apiKey}`;
+    if (this.installId) headers["x-lookupd-install"] = this.installId;
     if (body !== undefined) headers["content-type"] = "application/json";
     const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
       method,

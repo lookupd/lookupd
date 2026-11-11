@@ -97,28 +97,28 @@ test("find prints results from the REST API, as a table or as JSON", async () =>
 });
 
 test("telemetry status is on by default and names the source of the setting", async () => {
-  expect((await run(["telemetry", "status"])).stdout.trim()).toBe("on (default)");
-  expect((await run(["telemetry", "status"], { DO_NOT_TRACK: "1" })).stdout.trim()).toBe(
+  expect((await run(["telemetry", "status"])).stdout.split("\n")[0]).toBe("on (default)");
+  expect((await run(["telemetry", "status"], { DO_NOT_TRACK: "1" })).stdout.split("\n")[0]).toBe(
     "off (DO_NOT_TRACK is set)",
   );
   expect((await run(["telemetry", "on"])).status).toBe(0);
-  expect((await run(["telemetry", "status"])).stdout.trim()).toBe(
+  expect((await run(["telemetry", "status"])).stdout.split("\n")[0]).toBe(
     "on (set by lookupd telemetry on)",
   );
   expect(JSON.parse(readFileSync(join(tmp, "lookupd", "config.json"), "utf8")).telemetry).toBe(
     "on",
   );
   expect((await run(["telemetry", "off"])).status).toBe(0);
-  expect((await run(["telemetry", "status"])).stdout.trim()).toBe(
+  expect((await run(["telemetry", "status"])).stdout.split("\n")[0]).toBe(
     "off (set by lookupd telemetry off)",
   );
   // The explicit choice beats DO_NOT_TRACK; LOOKUPD_TELEMETRY beats the explicit choice.
-  expect((await run(["telemetry", "status"], { DO_NOT_TRACK: "1" })).stdout.trim()).toBe(
+  expect((await run(["telemetry", "status"], { DO_NOT_TRACK: "1" })).stdout.split("\n")[0]).toBe(
     "off (set by lookupd telemetry off)",
   );
-  expect((await run(["telemetry", "status"], { LOOKUPD_TELEMETRY: "1" })).stdout.trim()).toBe(
-    "on (LOOKUPD_TELEMETRY=1)",
-  );
+  expect(
+    (await run(["telemetry", "status"], { LOOKUPD_TELEMETRY: "1" })).stdout.split("\n")[0],
+  ).toBe("on (LOOKUPD_TELEMETRY=1)");
   expect((await run(["telemetry", "maybe"])).status).toBe(1);
 });
 
@@ -172,7 +172,7 @@ test("mcp serves the remote tools over stdio, with report_outcome on by default,
   expect(stderr.text).toMatch(/DO_NOT_TRACK=1/);
   expect(stderr.text).toMatch(/lookupd\.com\/telemetry/);
   expect(JSON.parse(readFileSync(join(tmp, "lookupd", "config.json"), "utf8")).noticeVersion).toBe(
-    2,
+    3,
   );
 });
 
@@ -189,4 +189,24 @@ test("mcp after lookupd telemetry off hides report_outcome", async () => {
   expect(tools).toEqual(["find_capability", "get_entry", "health"]);
   await new Promise((r) => setTimeout(r, 100));
   expect(stderr.text).toBe("");
+});
+
+test("telemetry status shows the install id once one exists, and reset rotates it", async () => {
+  // Any command while telemetry is on makes the id, status included.
+  const before = await run(["telemetry", "status"]);
+  expect(before.stdout).toMatch(/install id: [0-9a-f-]{36}/);
+  const config = () =>
+    JSON.parse(readFileSync(join(tmp, "lookupd", "config.json"), "utf8")) as { installId?: string };
+  const first = config().installId;
+  expect(first).toMatch(/^[0-9a-f-]{36}$/);
+  expect((await run(["telemetry", "status"])).stdout).toContain(`install id: ${first}`);
+  const reset = await run(["telemetry", "reset"]);
+  expect(reset.status).toBe(0);
+  expect(reset.stdout).toContain("install id rotated");
+  expect(config().installId).not.toBe(first);
+  // Off: no id is made for a fresh config.
+  expect(
+    (await run(["telemetry", "status"], { DO_NOT_TRACK: "1", XDG_CONFIG_HOME: join(tmp, "other") }))
+      .stdout,
+  ).toContain("none yet");
 });

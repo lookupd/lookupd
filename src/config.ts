@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -11,12 +12,37 @@ export interface Config {
   apiKey?: string;
   /** Which one-time telemetry notice has been printed (NOTICE_VERSION); absent for 0.1.x configs. */
   noticeVersion?: number;
+  /**
+   * A random id made up once for this install and sent (X-Lookupd-Install) while telemetry is
+   * on, so lookupd can count installs that come back; `lookupd telemetry reset` replaces it.
+   */
+  installId?: string;
 }
 
 export const UNSET: Config = { telemetry: "unset" };
 
 /** Bumped when the default or the notice text changes, so every user sees the new notice once. */
-export const NOTICE_VERSION = 2;
+export const NOTICE_VERSION = 3;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** The install id, made up and stored the first time telemetry is on. */
+export function ensureInstallId(
+  config: Config,
+  env: NodeJS.ProcessEnv = process.env,
+): { config: Config; installId: string } {
+  if (config.installId) return { config, installId: config.installId };
+  const next = { ...config, installId: randomUUID() };
+  writeConfig(next, env);
+  return { config: next, installId: next.installId };
+}
+
+/** A fresh install id: what `lookupd telemetry reset` does. */
+export function rotateInstallId(config: Config, env: NodeJS.ProcessEnv = process.env): Config {
+  const next = { ...config, installId: randomUUID() };
+  writeConfig(next, env);
+  return next;
+}
 
 export type TelemetrySource = "LOOKUPD_TELEMETRY" | "config" | "DO_NOT_TRACK" | "default";
 
@@ -62,6 +88,9 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
       telemetry,
       ...(typeof raw.apiKey === "string" && raw.apiKey ? { apiKey: raw.apiKey } : {}),
       ...(typeof raw.noticeVersion === "number" ? { noticeVersion: raw.noticeVersion } : {}),
+      ...(typeof raw.installId === "string" && UUID.test(raw.installId)
+        ? { installId: raw.installId }
+        : {}),
     };
   } catch {
     return { ...UNSET };

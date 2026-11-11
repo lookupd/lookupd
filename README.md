@@ -89,6 +89,11 @@ Policy: https://lookupd.com/telemetry
 Every find response carries a `lookup_id`; the skill quotes it in the outcome report, so a report
 names the exact search that found the server.
 
+From 0.3.0, while telemetry is on, every request also carries a random install id the CLI made up
+once (`X-Lookupd-Install`, kept in the config file), so lookupd can count how many installs come
+back week to week. It names the install, never you. `lookupd telemetry reset` replaces it, and
+`lookupd telemetry status` shows it.
+
 ## Call hooks (opt-in)
 
 `lookupd hooks install` (add `--client codex` for Codex) writes one hook into

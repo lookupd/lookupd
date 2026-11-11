@@ -5,8 +5,10 @@ import { afterEach, expect, test } from "vitest";
 import {
   configPath,
   detectRuntime,
+  ensureInstallId,
   NOTICE_VERSION,
   readConfig,
+  rotateInstallId,
   telemetryState,
   writeConfig,
 } from "../src/config.js";
@@ -89,4 +91,18 @@ test("detectRuntime recognises Claude Code, Cursor and VS Code, else generic", (
   expect(detectRuntime({ TERM_PROGRAM: "vscode" })).toBe("vscode");
   expect(detectRuntime({ VSCODE_PID: "123" })).toBe("vscode");
   expect(detectRuntime({})).toBe("generic");
+});
+
+test("the install id is made once while telemetry is on, persists, and reset replaces it", () => {
+  const e = env();
+  const first = ensureInstallId(readConfig(e), e);
+  expect(first.installId).toMatch(/^[0-9a-f-]{36}$/);
+  expect(readConfig(e).installId).toBe(first.installId);
+  expect(ensureInstallId(readConfig(e), e).installId).toBe(first.installId);
+  const rotated = rotateInstallId(readConfig(e), e);
+  expect(rotated.installId).not.toBe(first.installId);
+  expect(readConfig(e).installId).toBe(rotated.installId);
+  // A malformed stored id is ignored, so a fresh one is made.
+  writeFileSync(configPath(e), JSON.stringify({ telemetry: "unset", installId: "nope" }));
+  expect(readConfig(e).installId).toBeUndefined();
 });

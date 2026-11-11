@@ -106,3 +106,15 @@ test("the default base URL is the production API, overridable by LOOKUPD_API_URL
     new LookupdApi({ userAgent: "t", env: { LOOKUPD_API_URL: "http://localhost:3000/" } }).baseUrl,
   ).toBe("http://localhost:3000");
 });
+
+test("the install id is sent as X-Lookupd-Install only when configured", async () => {
+  const base = await stub(() => ({ status: 200, body: { results: [], ranking: "provisional" } }));
+  await new LookupdApi({ baseUrl: base, userAgent: "t" }).find({ task: "x" });
+  expect(seen[0]?.headers["x-lookupd-install"]).toBeUndefined();
+  await new LookupdApi({
+    baseUrl: base,
+    userAgent: "t",
+    installId: "0f6b9d2a-7c3e-4a1b-9e8d-5a4b3c2d1e0f",
+  }).find({ task: "x" });
+  expect(seen[1]?.headers["x-lookupd-install"]).toBe("0f6b9d2a-7c3e-4a1b-9e8d-5a4b3c2d1e0f");
+});

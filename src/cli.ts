@@ -5,8 +5,10 @@ import { LookupdApi, LookupdApiError } from "./api.js";
 import { createBridge } from "./bridge.js";
 import {
   detectRuntime,
+  ensureInstallId,
   NOTICE_VERSION,
   readConfig,
+  rotateInstallId,
   telemetryState,
   writeConfig,
 } from "./config.js";
@@ -27,7 +29,7 @@ const USAGE = `lookupd ${pkg.version} — find the right MCP server, skill or ag
 usage:
   lookupd mcp                                   serve lookupd's tools over stdio (for MCP clients)
   lookupd find <task...> [--runtime R] [--limit N] [--json]
-  lookupd telemetry on|off|status               anonymous outcome reports (on by default)
+  lookupd telemetry on|off|status|reset         anonymous outcome reports (on by default); reset rotates the install id
   lookupd hooks install|remove|status [--client claude-code|codex]
                                                 opt-in: report which servers and tools get called
   lookupd login --key lk_...                    store an API key (optional)
@@ -39,8 +41,10 @@ Environment: LOOKUPD_API_URL (default https://api.lookupd.com), XDG_CONFIG_HOME,
 
 const NOTICE = `lookupd: anonymous outcome reports are on. After a task uses an MCP server, the agent may
 report which server, whether it worked, a latency bucket, your runtime, and structured workflow
-fields (a random per-conversation id, step, tool name, domain from a fixed list). Never prompts,
-task text, paths or output.  Turn off:  lookupd telemetry off   (or DO_NOT_TRACK=1)
+fields (a random per-conversation id, step, tool name, domain from a fixed list). Each request
+also carries a random install id made up once for this install, so lookupd can count installs
+that come back (rotate it: lookupd telemetry reset). Never prompts, task text, paths or output.
+Turn off:  lookupd telemetry off   (or DO_NOT_TRACK=1)
 Policy: https://lookupd.com/telemetry
 `;
 
@@ -101,10 +105,17 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Prom
     io.stdout.write(USAGE);
     return command ? 0 : 1;
   }
-  const config = readConfig(env);
+  let config = readConfig(env);
   const runtime = detectRuntime(env);
   const userAgent = `lookupd-cli/${pkg.version} (${runtime})`;
-  const api = new LookupdApi({ userAgent, env, apiKey: config.apiKey });
+  // The install id exists only while telemetry is on: off means nothing is sent, so nothing is made.
+  let installId: string | undefined;
+  if (telemetryState(config, env).on) {
+    const ensured = ensureInstallId(config, env);
+    config = ensured.config;
+    installId = ensured.installId;
+  }
+  const api = new LookupdApi({ userAgent, env, apiKey: config.apiKey, installId });
 
   switch (command) {
     case "mcp": {
@@ -121,6 +132,7 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Prom
         headers: {
           "user-agent": userAgent,
           ...(config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : {}),
+          ...(installId ? { "x-lookupd-install": installId } : {}),
         },
         telemetryOn,
         stderr: io.stderr,
@@ -171,6 +183,9 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Prom
               ? `${STATUS_REASON.LOOKUPD_TELEMETRY}${env.LOOKUPD_TELEMETRY}`
               : STATUS_REASON[t.source];
         io.stdout.write(`${t.on ? "on" : "off"} (${reason})\n`);
+        io.stdout.write(
+          `install id: ${config.installId ?? "none yet (made on first use while on)"}  (rotate: lookupd telemetry reset)\n`,
+        );
         return 0;
       }
       if (mode === "on" || mode === "off") {
@@ -182,7 +197,12 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Prom
         );
         return 0;
       }
-      io.stderr.write("usage: lookupd telemetry on|off|status\n");
+      if (mode === "reset") {
+        rotateInstallId(config, env);
+        io.stdout.write("install id rotated: lookupd now sees this install as a new one\n");
+        return 0;
+      }
+      io.stderr.write("usage: lookupd telemetry on|off|status|reset\n");
       return 1;
     }
     case "login": {
@@ -246,6 +266,7 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, io: Io): Prom
           userAgent: `lookupd-hook/${pkg.version} (${client})`,
           env,
           apiKey: config.apiKey,
+          installId,
           timeoutMs: 3_000,
         }),
       });
